@@ -17,30 +17,31 @@ for (let n = 2; n < lines.length - 4; n = n + 4) {
     time: lines[n + 1],
     eng: lines[n + 2],
     words: words_in_text(lines[n + 2]).map(e => e.toLowerCase()),
-    t_words: []
+    t_words: [],
+    rus: ""
   });
 }
 
-const buildTStr = () => {
+const getTFromRedis = () => {
   let n_words = 0,
     n_t_words = 0;
   sub.forEach(({ words }, i) => {
     words.forEach((word, j) => {
       n_words++;
       client.get(word, (err, res) => {
-        if (res) {
-          sub[i].t_words[j] = res.split(",")[0];
-        } else {
-          sub[i].t_words[j] = null;
-        }
+        sub[i].t_words[j] = res ? res.split(",")[0] : null;
         n_t_words++;
         if (n_t_words >= n_words) {
-          console.log(sub);
           client.quit();
+          buildRus();
         }
       });
     });
   });
+};
+
+const buildRus = () => {
+  console.log(sub);
 };
 
 // const createPromise = word => {
@@ -107,5 +108,5 @@ Promise.all(promises).then(ok => {
     client.set(element.w, element.t);
   });
   // client.quit();
-  buildTStr();
+  getTFromRedis();
 });
