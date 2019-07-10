@@ -9,7 +9,8 @@ const words_in_text = function(text) {
 };
 
 const buf = fs.readFileSync("./1.Introduction.vtt", { encoding: "utf8" });
-const lines = buf.split(/\r+\n/);
+const lines = buf.split(/\r*\n/);
+// console.log(lines);
 const sub = [];
 for (let n = 2; n < lines.length - 4; n = n + 4) {
   sub.push({
@@ -41,7 +42,12 @@ const getTFromRedis = () => {
 };
 
 const buildRus = () => {
-  console.log(sub);
+  sub.forEach(({ words, eng, t_words, rus }, i) => {
+    t_words.forEach((word, j) => {
+      rus = rus + " " + word;
+    });
+    console.log(rus);
+  });
 };
 
 // const createPromise = word => {
@@ -107,6 +113,5 @@ Promise.all(promises).then(ok => {
   ok.forEach(element => {
     client.set(element.w, element.t);
   });
-  // client.quit();
   getTFromRedis();
 });
