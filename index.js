@@ -1,6 +1,8 @@
 const fs = require("fs");
 const https = require("https");
 const redis = require("redis");
+const { promisify } = require("util");
+
 const client = redis.createClient();
 
 const words_in_text = function(text) {
@@ -42,11 +44,32 @@ const getTFromRedis = () => {
 };
 
 const buildRus = () => {
-  sub.forEach(({ words, eng, t_words, rus }, i) => {
-    t_words.forEach((word, j) => {
-      rus = rus + " " + word;
+  sub.forEach(({ words, eng, t_words }, i) => {
+    const startPoses = [];
+    const engParts = [];
+    let lastIndex = -1;
+    words.forEach(word => {
+      let re = new RegExp(`${word}[^ ]*`, "ig");
+      re.lastIndex = lastIndex;
+      let startPos = re.exec(eng);
+      if (startPos) {
+        startPoses.push(startPos.index);
+        lastIndex = startPos.index;
+        engParts.push(startPos[0]);
+      } else {
+        startPoses.push(null);
+      }
     });
-    console.log(rus);
+
+    console.log(eng, startPoses);
+    sub[i].rus = " ".repeat(128);
+    t_words.forEach((t_word, j) => {
+      if (startPoses[j] >= 0) {
+        sub[i].rus = sub[i].rus.slice(0, startPoses[j]) + t_word + sub[i].rus.slice(startPoses[j] + t_word.length);
+      }
+    });
+    console.log(sub[i].rus);
+    // console.log(rus);
   });
 };
 
@@ -105,7 +128,14 @@ const createPromise2 = word => {
 };
 
 let allWords = Array.from(new Set(sub.map(o => o.words).reduce((r, a) => [...r, ...a])));
-allWords = allWords.filter(word => client.exists(word));
+// allWords.push("lfddjfg");
+// const exists = promisify(client.exists).bind(client);
+// Promise.all(allWords.map(word => exists(word))).then(isExistWords => {
+//   allWords = allWords.filter((word, i) => !isExistWords[i]);
+//   console.log(allWords);
+//   client.quit();
+// });
+allWords = [];
 
 const promises = allWords.map(word => createPromise2(word));
 

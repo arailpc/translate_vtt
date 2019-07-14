@@ -3,7 +3,9 @@ const client = redis.createClient();
 
 // client.set("hello", "привет как дела");
 
-client.get("our", (err, res) => {
-  console.log(res);
-  client.quit();
-});
+// client.get("our", (err, res) => {
+//   console.log(res);
+//   client.quit();
+// });
+
+let test = "0123456789";
