@@ -60,7 +60,15 @@ const buildRus = () => {
         startPoses.push(null);
       }
     });
-
+    for (let iPos = 0; iPos < startPoses.length; iPos++) {
+      if (!(words[iPos] && t_words[iPos])) continue;
+      if (words[iPos].length < t_words[iPos].length) {
+        for (let iPosShift = iPos + 1; iPosShift < startPoses.length; iPosShift++) {
+          startPoses[iPosShift] = startPoses[iPosShift] + (t_words[iPos].length - words[iPos].length);
+          // console.log(startPoses.length);
+        }
+      }
+    }
     console.log(eng, startPoses);
     sub[i].rus = " ".repeat(128);
     t_words.forEach((t_word, j) => {
@@ -68,6 +76,13 @@ const buildRus = () => {
         sub[i].rus = sub[i].rus.slice(0, startPoses[j]) + t_word + sub[i].rus.slice(startPoses[j] + t_word.length);
       }
     });
+    let eeng = " ".repeat(128);
+    engParts.forEach((e, j) => {
+      if (startPoses[j] >= 0) {
+        eeng = eeng.slice(0, startPoses[j]) + e + eeng.slice(startPoses[j] + e.length);
+      }
+    });
+    console.log(eeng);
     console.log(sub[i].rus);
     // console.log(rus);
   });
