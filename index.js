@@ -69,7 +69,7 @@ const buildRus = () => {
         }
       }
     }
-    console.log(eng, startPoses);
+    // console.log(eng, startPoses);
     sub[i].rus = " ".repeat(128);
     t_words.forEach((t_word, j) => {
       if (startPoses[j] >= 0) {
@@ -82,8 +82,11 @@ const buildRus = () => {
         eeng = eeng.slice(0, startPoses[j]) + e + eeng.slice(startPoses[j] + e.length);
       }
     });
-    console.log(eeng);
-    console.log(sub[i].rus);
+    // console.log(eeng);
+    // console.log(sub[i].rus);
+    sub[i].eng = eeng;
+    client.quit();
+    writeSubs("subs.vtt");
     // console.log(rus);
   });
 };
@@ -142,21 +145,42 @@ const createPromise2 = word => {
   });
 };
 
-let allWords = Array.from(new Set(sub.map(o => o.words).reduce((r, a) => [...r, ...a])));
-// allWords.push("lfddjfg");
-// const exists = promisify(client.exists).bind(client);
-// Promise.all(allWords.map(word => exists(word))).then(isExistWords => {
-//   allWords = allWords.filter((word, i) => !isExistWords[i]);
-//   console.log(allWords);
-//   client.quit();
-// });
-allWords = [];
-
-const promises = allWords.map(word => createPromise2(word));
-
-Promise.all(promises).then(ok => {
-  ok.forEach(element => {
-    client.set(element.w, element.t);
+const getTranslate = async () => {
+  let allWords = Array.from(new Set(sub.map(o => o.words).reduce((r, a) => [...r, ...a])));
+  // allWords.push("lfddjfg");
+  const exists = promisify(client.exists).bind(client);
+  await Promise.all(allWords.map(word => exists(word))).then(isExistWords => {
+    allWords = allWords.filter((word, i) => !isExistWords[i]);
+    console.log(allWords);
   });
-  getTFromRedis();
-});
+  // allWords = [];
+
+  const promises = allWords.map(word => createPromise2(word));
+
+  Promise.all(promises).then(ok => {
+    ok.forEach(element => {
+      client.set(element.w, element.t);
+    });
+    getTFromRedis();
+  });
+};
+
+const writeSubs = async filename => {
+  const ws = fs.createWriteStream(filename, { encoding: "utf8" });
+  const write = promisify(ws.write).bind(ws);
+  for (let i = 0; i < sub.length; i++) {
+    await write("\n");
+    await write(Number(sub[i].n).toString());
+    await write("\n");
+    await write(sub[i].eng);
+    await write("\n");
+    await write(sub[i].rus);
+    await write("\n");
+  }
+  ws.on("end", () => {
+    console.log("finish");
+    ws.end();
+  });
+};
+
+getTranslate();

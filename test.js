@@ -1,5 +1,11 @@
 const redis = require("redis");
-const client = redis.createClient();
+// const client = redis.createClient();
+const fs = require("fs");
+
+const ws = fs.createWriteStream("test.txt");
+ws.write("line\n");
+ws.write("line2");
+ws.end();
 
 // client.set("hello", "привет как дела");
 
@@ -8,4 +14,4 @@ const client = redis.createClient();
 //   client.quit();
 // });
 
-let test = "0123456789";
+// let test = "0123456789";
