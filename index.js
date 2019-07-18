@@ -1,6 +1,7 @@
 const fs = require("fs");
 const https = require("https");
 const redis = require("redis");
+const path = require("path");
 const { promisify } = require("util");
 
 const client = redis.createClient();
@@ -10,22 +11,47 @@ const words_in_text = function(text) {
   return text.match(regex);
 };
 
-const buf = fs.readFileSync("./1.Introduction.vtt", { encoding: "utf8" });
-const lines = buf.split(/\r*\n/);
-// console.log(lines);
-const sub = [];
-for (let n = 2; n < lines.length - 4; n = n + 4) {
-  sub.push({
-    n: lines[n],
-    time: lines[n + 1],
-    eng: lines[n + 2],
-    words: words_in_text(lines[n + 2]).map(e => e.toLowerCase()),
-    t_words: [],
-    rus: ""
+const readFiles = () => {
+  const filenames = fs.readdirSync("./in");
+  filenames.forEach(filename => {
+    const buf = fs.readFileSync(path.join(__dirname, "./in", filename), { encoding: "utf8" });
+    const lines = buf.split(/\r*\n/);
+    const sub = [];
+    for (let n = 2; n < lines.length - 4; n = n + 4) {
+      sub.push({
+        n: lines[n],
+        time: lines[n + 1],
+        eng: lines[n + 2],
+        words: words_in_text(lines[n + 2]).map(e => e.toLowerCase()),
+        t_words: [],
+        rus: ""
+      });
+    }
+    getTranslate(path.join(__dirname, "./out", filename), sub);
   });
-}
+};
 
-const getTFromRedis = () => {
+const readFiles2 = () => {
+  const filenames = fs.readdirSync("./in");
+  filenames.forEach(filename => {
+    const buf = fs.readFileSync(path.join(__dirname, "./in", filename), { encoding: "utf8" });
+    const lines = buf.split(/\r*\n/);
+    const sub = [];
+    for (let n = 2, i = 1; n < lines.length - 3; n = n + 3, i++) {
+      sub.push({
+        n: i.toString(),
+        time: lines[n],
+        eng: lines[n + 1],
+        words: words_in_text(lines[n + 1]).map(e => e.toLowerCase()),
+        t_words: [],
+        rus: ""
+      });
+    }
+    getTranslate(path.join(__dirname, "./out", filename), sub);
+  });
+};
+
+const getTFromRedis = (filename, sub) => {
   let n_words = 0,
     n_t_words = 0;
   sub.forEach(({ words }, i) => {
@@ -35,15 +61,15 @@ const getTFromRedis = () => {
         sub[i].t_words[j] = res ? res.split(",")[0] : null;
         n_t_words++;
         if (n_t_words >= n_words) {
-          client.quit();
-          buildRus();
+          // client.quit();
+          buildRus(filename, sub);
         }
       });
     });
   });
 };
 
-const buildRus = () => {
+const buildRus = (filename, sub) => {
   sub.forEach(({ words, eng, t_words }, i) => {
     const startPoses = [];
     const engParts = [];
@@ -76,18 +102,20 @@ const buildRus = () => {
         sub[i].rus = sub[i].rus.slice(0, startPoses[j]) + t_word + sub[i].rus.slice(startPoses[j] + t_word.length);
       }
     });
+    sub[i].rus = sub[i].rus.trim();
     let eeng = " ".repeat(128);
     engParts.forEach((e, j) => {
       if (startPoses[j] >= 0) {
         eeng = eeng.slice(0, startPoses[j]) + e + eeng.slice(startPoses[j] + e.length);
       }
     });
-    // console.log(eeng);
-    // console.log(sub[i].rus);
-    sub[i].eng = eeng;
-    client.quit();
-    writeSubs("subs.vtt");
-    // console.log(rus);
+    sub[i].eng = eeng.trim();
+    if (sub[i].rus.length > sub[i].eng.length) {
+      sub[i].eng = sub[i].eng + " ".repeat(sub[i].rus.length - sub[i].eng.length);
+    } else {
+      sub[i].rus = sub[i].rus + " ".repeat(sub[i].eng.length - sub[i].rus.length);
+    }
+    writeSubs(filename, sub);
   });
 };
 
@@ -145,15 +173,13 @@ const createPromise2 = word => {
   });
 };
 
-const getTranslate = async () => {
+const getTranslate = async (filename, sub) => {
   let allWords = Array.from(new Set(sub.map(o => o.words).reduce((r, a) => [...r, ...a])));
-  // allWords.push("lfddjfg");
   const exists = promisify(client.exists).bind(client);
   await Promise.all(allWords.map(word => exists(word))).then(isExistWords => {
     allWords = allWords.filter((word, i) => !isExistWords[i]);
     console.log(allWords);
   });
-  // allWords = [];
 
   const promises = allWords.map(word => createPromise2(word));
 
@@ -161,26 +187,26 @@ const getTranslate = async () => {
     ok.forEach(element => {
       client.set(element.w, element.t);
     });
-    getTFromRedis();
+    getTFromRedis(filename, sub);
   });
 };
 
-const writeSubs = async filename => {
+const writeSubs = async (filename, sub) => {
   const ws = fs.createWriteStream(filename, { encoding: "utf8" });
   const write = promisify(ws.write).bind(ws);
+  await write("WEBVTT\n");
   for (let i = 0; i < sub.length; i++) {
     await write("\n");
     await write(Number(sub[i].n).toString());
+    await write("\n");
+    await write(sub[i].time);
     await write("\n");
     await write(sub[i].eng);
     await write("\n");
     await write(sub[i].rus);
     await write("\n");
   }
-  ws.on("end", () => {
-    console.log("finish");
-    ws.end();
-  });
+  ws.end();
 };
 
-getTranslate();
+readFiles2();
