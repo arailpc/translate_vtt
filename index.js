@@ -31,9 +31,10 @@ const readFiles = () => {
   });
 };
 
-const readFiles2 = () => {
+const readFiles2 = async () => {
   const filenames = fs.readdirSync("./in");
-  filenames.forEach(filename => {
+  for (let j = 0; j < filenames.length; j++) {
+    const filename = filenames[j];
     const buf = fs.readFileSync(path.join(__dirname, "./in", filename), { encoding: "utf8" });
     const lines = buf.split(/\r*\n/);
     const sub = [];
@@ -47,8 +48,8 @@ const readFiles2 = () => {
         rus: ""
       });
     }
-    getTranslate(path.join(__dirname, "./out", filename), sub);
-  });
+    await getTranslate(path.join(__dirname, "./out", filename), sub);
+  }
 };
 
 const getTFromRedis = (filename, sub) => {
